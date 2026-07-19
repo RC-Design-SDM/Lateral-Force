@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายการคำนวณแรงลม - อาคารสูงปานกลาง (มยผ. 1311-50)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .report-header { border-bottom: 3px double #1f2937; padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+        .section-title { background-color: #e5e7eb; padding: 0.4rem 1rem; font-weight: 600; border-left: 4px solid #2563eb; margin-top: 1.5rem; margin-bottom: 1rem; }
+        .math-text { font-family: 'Times New Roman', Times, serif; font-style: italic; }
+        canvas { width: 100%; height: auto; background-color: white; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="p-4 md:p-8" onload="initApp()">
+
+    <div class="max-w-7xl mx-auto bg-white p-6 md:p-10 shadow-lg border border-gray-200 rounded-md">
+        
+        <div class="report-header text-center">
+            <h1 class="text-2xl font-bold text-gray-800">รายการคำนวณตาม ข.9</h1>
+            <p class="text-lg text-gray-600 mt-1">การคำนวณหน่วยแรงลมและ Story Force (มยผ. 1311-50)</p>
+        </div>
+
+        <!-- Input Section -->
+        <div class="bg-blue-50 p-6 rounded-md border border-blue-100 mb-8">
+            <h2 class="text-lg font-bold text-blue-800 mb-4 border-b border-blue-200 pb-2">1. ข้อมูลพื้นฐานอาคาร</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ความกว้างอาคารปะทะลม, W (ม.)</label>
+                    <input type="number" id="inp_W" value="20" class="mt-1 w-full p-2 border rounded border-gray-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ความลึกอาคาร, D (ม.)</label>
+                    <input type="number" id="inp_D" value="30" class="mt-1 w-full p-2 border rounded border-gray-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">จำนวนชั้น (ชั้น)</label>
+                    <input type="number" id="inp_stories" value="8" min="1" max="100" onchange="generateFloorInputs()" class="mt-1 w-full p-2 border rounded border-gray-300">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ความเร็วลมอ้างอิง, V50 (ม./วินาที)</label>
+                    <select id="inp_V50" class="mt-1 w-full p-2 border rounded border-gray-300">
+                        <option value="25" selected>25 (กลุ่มที่ 1, 4A, 4B)</option>
+                        <option value="27">27 (กลุ่มที่ 2)</option>
+                        <option value="29">29 (กลุ่มที่ 3)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">สภาพภูมิประเทศ</label>
+                    <select id="inp_exp" class="mt-1 w-full p-2 border rounded border-gray-300">
+                        <option value="A">แบบ A (โล่ง/ชายฝั่ง)</option>
+                        <option value="B" selected>แบบ B (ชานเมือง/มีสิ่งปลูกสร้าง)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">ค่าประกอบความสำคัญ, Iw</label>
+                    <select id="inp_Iw" class="mt-1 w-full p-2 border rounded border-gray-300">
+                        <option value="1.0" selected>1.0 (อาคารปกติ)</option>
+                        <option value="1.15">1.15 (อาคารสำคัญมาก/สูงมาก)</option>
+                    </select>
+                </div>
+            </div>
+
+            <h2 class="text-lg font-bold text-blue-800 mb-4 border-b border-blue-200 pb-2">2. กำหนดความสูงแต่ละชั้น (Story Data)</h2>
+            <div id="floor_inputs_container" class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                <!-- Dynamic Inputs Generated Here -->
+            </div>
+            
+            <div class="mt-4 p-3 bg-blue-100 rounded text-blue-900 border border-blue-200 flex justify-between items-center">
+                <span class="font-medium">ความสูงรวมอาคาร (H) ที่คำนวณได้:</span>
+                <span class="font-bold text-xl"><span id="disp_total_H">0.00</span> เมตร</span>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="runCalculation()" class="bg-blue-600 text-white px-8 py-3 rounded shadow hover:bg-blue-700 font-semibold text-lg transition duration-200 w-full md:w-auto">
+                    คำนวณหน่วยแรงลม และ Story Force
+                </button>
+            </div>
+        </div>
+
+        <!-- Output Section -->
+        <div id="outputSection" class="hidden">
+            <h2 class="section-title">1. พารามิเตอร์แรงลมพื้นฐาน</h2>
+            <div class="pl-4 space-y-2 text-gray-700">
+                <p>1.1 ความเร็วลมอ้างอิง (<span class="math-text">V<sub>50</sub></span>) = <span id="out_v50" class="font-semibold text-black"></span> ม./วินาที</p>
+                <p>1.2 หน่วยแรงลมอ้างอิง (<span class="math-text">q</span>) = 0.5 × 1.25 × <span class="math-text">V<sub>50</sub></span>² = <span id="out_q" class="font-semibold text-black"></span> N/m²</p>
+                <p>1.3 ค่าประกอบความสำคัญ (<span class="math-text">I<sub>w</sub></span>) = <span id="out_iw" class="font-semibold text-black"></span></p>
+                <p>1.4 ค่าประกอบเนื่องจากการกระโชกของลม (<span class="math-text">C<sub>g</sub></span>) = <span class="font-semibold text-black">2.0</span> (สำหรับการออกแบบโครงสร้างหลัก)</p>
+                <p>1.5 สัมประสิทธิ์หน่วยแรงลมภายนอก (<span class="math-text">C<sub>p</sub></span>) จากรูปที่ ข.9:</p>
+                <ul class="list-disc pl-8">
+                    <li>ด้านต้นลม (Windward) = <span class="font-semibold text-blue-600">0.8</span></li>
+                    <li>ด้านท้ายลม (Leeward) = <span class="font-semibold text-red-600">-0.5</span></li>
+                </ul>
+            </div>
+
+            <h2 class="section-title">2. การคำนวณหน่วยแรงลมด้านท้ายลม (Leeward)</h2>
+            <div class="pl-4 space-y-2 text-gray-700">
+                <p>ตามมาตรฐาน มยผ. กำหนดให้ใช้ความสูงอ้างอิงสำหรับด้านท้ายลม <span class="math-text">z</span> = 0.5H</p>
+                <p>ความสูงอ้างอิง <span class="math-text">z</span> = 0.5 × <span id="out_H"></span> = <span id="out_zlee" class="font-semibold text-black"></span> ม.</p>
+                <p>ค่าประกอบเนื่องจากสภาพภูมิประเทศ (<span class="math-text">C<sub>e</sub></span>) = <span id="out_celee" class="font-semibold text-black"></span> <span id="out_celee_formula" class="text-sm text-gray-500 ml-2"></span></p>
+                <p>หน่วยแรงลมด้านท้ายลม (<span class="math-text">p<sub>leeward</sub></span>) = <span class="math-text">I<sub>w</sub></span> × <span class="math-text">q</span> × <span class="math-text">C<sub>e</sub></span> × <span class="math-text">C<sub>g</sub></span> × <span class="math-text">C<sub>p</sub></span></p>
+                <p>หน่วยแรงลมด้านท้ายลม (<span class="math-text">p<sub>leeward</sub></span>) = <span id="out_plee" class="font-semibold text-red-600"></span> N/m²</p>
+            </div>
+
+            <h2 class="section-title">3. ตารางหน่วยแรงลมออกแบบตลอดความสูง</h2>
+            <div class="overflow-x-auto mt-4">
+                <table class="w-full text-center border-collapse border border-gray-300 text-sm">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="border border-gray-300 p-2">ชั้นที่</th>
+                            <th class="border border-gray-300 p-2">ความสูงชั้น<br>h (ม.)</th>
+                            <th class="border border-gray-300 p-2">ความสูงสะสม<br>z (ม.)</th>
+                            <th class="border border-gray-300 p-2 text-gray-600">สูตรคำนวณ C<sub>e</sub> (ต้นลม)</th>
+                            <th class="border border-gray-300 p-2">C<sub>e</sub><br>(ต้นลม)</th>
+                            <th class="border border-gray-300 p-2 text-blue-700">แรงต้นลม<br>p<sub>windward</sub> (N/m²)</th>
+                            <th class="border border-gray-300 p-2 text-red-700">แรงท้ายลม<br>p<sub>leeward</sub> (N/m²)</th>
+                            <th class="border border-gray-300 p-2 text-green-700">แรงลมสุทธิ<br>p<sub>net</sub> (N/m²)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultTableBody">
+                        <!-- JS Injection -->
+                    </tbody>
+                </table>
+            </div>
+
+            <h2 class="section-title">4. รูปด้านอาคารแสดงโปรไฟล์แรงลม (Pressure Profile)</h2>
+            <div class="flex justify-center mt-6">
+                <canvas id="elevationCanvas" width="800" height="600" class="shadow-sm max-w-2xl"></canvas>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-2">หมายเหตุ: ลูกศรสีน้ำเงินคือแรงดันด้านต้นลม (Push) และลูกศรสีแดงคือแรงดูดด้านท้ายลม (Pull)</p>
+
+            <h2 class="section-title">5. การคำนวณ Story Force (แรงกระทำระดับชั้นทั้ง 2 ทิศทาง)</h2>
+            <div class="pl-4 space-y-2 text-gray-700 mb-4">
+                <p>คำนวณแรงลัพธ์กระทำระดับชั้นโดยกระจายพื้นที่รับลมแบบ One-way (ครึ่งชั้นบน + ครึ่งชั้นล่าง)</p>
+                <p><span class="math-text">F<sub>story</sub></span> = <span class="math-text">P<sub>net</sub></span> × <span class="math-text">Area</span></p>
+                <ul class="list-disc pl-8">
+                    <li><span class="font-semibold text-blue-700">กรณีลมปะทะด้านกว้าง W</span> : <span class="math-text">Area</span> = <span class="math-text">W</span> (<span id="out_W" class="font-medium"></span> ม.) × <span class="math-text">h<sub>tributary</sub></span></li>
+                    <li><span class="font-semibold text-indigo-700">กรณีลมปะทะด้านลึก D</span> : <span class="math-text">Area</span> = <span class="math-text">D</span> (<span id="out_D" class="font-medium"></span> ม.) × <span class="math-text">h<sub>tributary</sub></span></li>
+                </ul>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-center border-collapse border border-gray-300 text-sm">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="border border-gray-300 p-2" rowspan="2">ชั้นที่</th>
+                            <th class="border border-gray-300 p-2" rowspan="2">ความสูง<br>z (ม.)</th>
+                            <th class="border border-gray-300 p-2 text-green-700" rowspan="2">แรงลมสุทธิ<br>p<sub>net</sub> (N/m²)</th>
+                            <th class="border border-gray-300 p-2" rowspan="2">ระยะรับลม<br>h<sub>trib</sub> (ม.)</th>
+                            <th class="border border-gray-300 p-2 bg-blue-100" colspan="2">ลมปะทะด้าน W</th>
+                            <th class="border border-gray-300 p-2 bg-indigo-100" colspan="2">ลมปะทะด้าน D</th>
+                        </tr>
+                        <tr>
+                            <th class="border border-gray-300 p-2 bg-blue-50">พื้นที่รับลม<br>Area (ม.²)</th>
+                            <th class="border border-gray-300 p-2 text-blue-700 bg-blue-50">Story Force<br>F<sub>W</sub> (kN)</th>
+                            <th class="border border-gray-300 p-2 bg-indigo-50">พื้นที่รับลม<br>Area (ม.²)</th>
+                            <th class="border border-gray-300 p-2 text-indigo-700 bg-indigo-50">Story Force<br>F<sub>D</sub> (kN)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="storyForceTableBody">
+                        <!-- JS Injection -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div>
+                    <canvas id="storyForceCanvasW" width="500" height="600" class="shadow-sm w-full"></canvas>
+                    <p class="text-center text-sm font-medium mt-2 text-blue-800">แรงกระทำเมื่อลมปะทะด้านกว้าง (W)</p>
+                </div>
+                <div>
+                    <canvas id="storyForceCanvasD" width="500" height="600" class="shadow-sm w-full"></canvas>
+                    <p class="text-center text-sm font-medium mt-2 text-indigo-800">แรงกระทำเมื่อลมปะทะด้านลึก (D)</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentHeights = [];
+
+        function initApp() {
+            generateFloorInputs();
+        }
+
+        function generateFloorInputs() {
+            const stories = parseInt(document.getElementById('inp_stories').value) || 1;
+            const container = document.getElementById('floor_inputs_container');
+            
+            let newHeights = [];
+            for (let i = 0; i < stories; i++) {
+                if (i < currentHeights.length) {
+                    newHeights.push(currentHeights[i]);
+                } else {
+                    newHeights.push(3.0); // Default 3.0 m
+                }
+            }
+            currentHeights = newHeights;
+
+            let html = '';
+            for (let i = 0; i < stories; i++) {
+                html += `
+                <div class="bg-white p-2 rounded border border-gray-200">
+                    <label class="block text-xs font-bold text-gray-600 mb-1">ความสูงชั้น ${i + 1} (ม.)</label>
+                    <input type="number" class="floor-height-input w-full p-1.5 border rounded text-sm text-center" 
+                           value="${currentHeights[i]}" step="0.1" min="0.1" 
+                           onchange="updateTotalHeightDisplay()">
+                </div>`;
+            }
+            container.innerHTML = html;
+            updateTotalHeightDisplay();
+        }
+
+        function updateTotalHeightDisplay() {
+            const inputs = document.querySelectorAll('.floor-height-input');
+            let total = 0;
+            inputs.forEach((inp, idx) => {
+                let v = parseFloat(inp.value) || 0;
+                currentHeights[idx] = v;
+                total += v;
+            });
+            document.getElementById('disp_total_H').innerText = total.toFixed(2);
+        }
+
+        function calcCe(z, expType) {
+            let val, formula, minApplied = false;
+            if (expType === 'A') {
+                val = Math.pow(z / 10, 0.2);
+                formula = `(${z.toFixed(2)}/10)<sup>0.2</sup>`;
+                if (val < 0.9) {
+                    val = 0.9;
+                    minApplied = true;
+                }
+            } else {
+                val = 0.7 * Math.pow(z / 12, 0.3);
+                formula = `0.7(${z.toFixed(2)}/12)<sup>0.3</sup>`;
+                if (val < 0.7) {
+                    val = 0.7;
+                    minApplied = true;
+                }
+            }
+            return { val: val, formula: formula, minApplied: minApplied };
+        }
+
+        function runCalculation() {
+            updateTotalHeightDisplay(); 
+
+            const W = parseFloat(document.getElementById('inp_W').value);
+            const D = parseFloat(document.getElementById('inp_D').value);
+            const stories = parseInt(document.getElementById('inp_stories').value);
+            const V50 = parseFloat(document.getElementById('inp_V50').value);
+            const expType = document.getElementById('inp_exp').value;
+            const Iw = parseFloat(document.getElementById('inp_Iw').value);
+
+            let H = 0;
+            let z_arr = [];
+            currentHeights.forEach(h => {
+                H += h;
+                z_arr.push(H);
+            });
+
+            // Step 1: Base Parameters
+            const q = 0.5 * 1.25 * Math.pow(V50, 2);
+            const Cg = 2.0;
+            const Cpw = 0.8;
+            const Cpl = -0.5;
+
+            document.getElementById('out_W').innerText = W.toFixed(2);
+            document.getElementById('out_D').innerText = D.toFixed(2);
+            document.getElementById('out_v50').innerText = V50;
+            document.getElementById('out_q').innerText = q.toFixed(2);
+            document.getElementById('out_iw').innerText = Iw;
+            document.getElementById('out_H').innerText = H.toFixed(2);
+
+            // Step 2: Leeward Calculation
+            const z_lee = 0.5 * H;
+            const leeCeData = calcCe(z_lee, expType);
+            const Ce_lee = leeCeData.val;
+            const P_lee = Iw * q * Ce_lee * Cg * Cpl;
+
+            document.getElementById('out_zlee').innerText = z_lee.toFixed(2);
+            document.getElementById('out_celee').innerText = Ce_lee.toFixed(3);
+            let leeFormulaText = `[ จากสูตร: ${leeCeData.formula.replace(/<sup>/g, '^').replace(/<\/sup>/g, '')} ]`;
+            if(leeCeData.minApplied) leeFormulaText += ` -> ปรับใช้ค่าต่ำสุด`;
+            document.getElementById('out_celee_formula').innerText = leeFormulaText;
+            document.getElementById('out_plee').innerText = P_lee.toFixed(2);
+
+            // Step 3 & Step 5: Loops
+            let tbodyHTML = '';
+            let storyForceHTML = '';
+            let Pw_arr = [];
+            
+            let F_W_arr = [];
+            let F_D_arr = [];
+            let totalShear_W = 0;
+            let totalShear_D = 0;
+
+            for (let i = 0; i < stories; i++) {
+                let h_floor = currentHeights[i];
+                let z = z_arr[i];
+
+                let windCeData = calcCe(z, expType);
+                let Ce_w = windCeData.val;
+                let P_w = Iw * q * Ce_w * Cg * Cpw;
+                let P_net = P_w - P_lee; 
+
+                Pw_arr.push(P_w);
+
+                let formulaDisplay = windCeData.formula;
+                if(windCeData.minApplied) {
+                    formulaDisplay += `<br><span class="text-xs text-gray-500">(ปรับใช้ค่าต่ำสุด ${(expType === 'A' ? '0.9' : '0.7')})</span>`;
+                }
+
+                tbodyHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 p-2">${i + 1}</td>
+                        <td class="border border-gray-300 p-2">${h_floor.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 font-medium">${z.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 text-gray-600">${formulaDisplay}</td>
+                        <td class="border border-gray-300 p-2 font-semibold">${Ce_w.toFixed(3)}</td>
+                        <td class="border border-gray-300 p-2 text-blue-700">${P_w.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 text-red-700">${P_lee.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 font-bold text-green-700">${P_net.toFixed(2)}</td>
+                    </tr>
+                `;
+
+                // Calculate Story Force
+                let h_trib = 0;
+                if (i === stories - 1) { // Top Floor
+                    h_trib = h_floor / 2;
+                } else {
+                    let h_next = currentHeights[i + 1];
+                    h_trib = (h_floor / 2) + (h_next / 2);
+                }
+
+                // Force on W face
+                let area_W = W * h_trib;
+                let force_W_kN = (P_net * area_W) / 1000;
+                F_W_arr.push(force_W_kN);
+                totalShear_W += force_W_kN;
+
+                // Force on D face
+                let area_D = D * h_trib;
+                let force_D_kN = (P_net * area_D) / 1000;
+                F_D_arr.push(force_D_kN);
+                totalShear_D += force_D_kN;
+
+                storyForceHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-300 p-2">${i + 1}</td>
+                        <td class="border border-gray-300 p-2">${z.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 text-green-700 font-medium">${P_net.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2">${h_trib.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 bg-blue-50">${area_W.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 font-bold text-blue-700 bg-blue-50">${force_W_kN.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 bg-indigo-50">${area_D.toFixed(2)}</td>
+                        <td class="border border-gray-300 p-2 font-bold text-indigo-700 bg-indigo-50">${force_D_kN.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+
+            storyForceHTML += `
+                <tr class="font-bold">
+                    <td class="border border-gray-300 p-2 text-right" colspan="5">Base Shear (แรงเฉือนที่ฐาน)</td>
+                    <td class="border border-gray-300 p-2 text-blue-800 bg-blue-100">${totalShear_W.toFixed(2)} kN</td>
+                    <td class="border border-gray-300 p-2 text-right"></td>
+                    <td class="border border-gray-300 p-2 text-indigo-800 bg-indigo-100">${totalShear_D.toFixed(2)} kN</td>
+                </tr>
+            `;
+
+            document.getElementById('resultTableBody').innerHTML = tbodyHTML;
+            document.getElementById('storyForceTableBody').innerHTML = storyForceHTML;
+            document.getElementById('outputSection').classList.remove('hidden');
+
+            // Draw Visuals
+            drawElevation(H, stories, z_arr, Pw_arr, P_lee);
+            drawStoryForces('storyForceCanvasW', H, stories, z_arr, F_W_arr, totalShear_W, W, '#1d4ed8');
+            drawStoryForces('storyForceCanvasD', H, stories, z_arr, F_D_arr, totalShear_D, D, '#4338ca');
+        }
+
+        function drawElevation(H, stories, z_arr, Pw_arr, Plee) {
+            const canvas = document.getElementById('elevationCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const marginB = 80, marginT = 40, buildW = 140;
+            const buildH = ch - marginB - marginT;
+            const buildX = cw / 2 - buildW / 2;
+            const buildY = marginT;
+
+            let maxP = Math.max(...Pw_arr, Math.abs(Plee));
+            if (maxP === 0) maxP = 1;
+            const maxArrowLen = 180;
+
+            drawGround(ctx, cw, buildY + buildH);
+
+            // Windward Polygon
+            ctx.beginPath();
+            ctx.moveTo(buildX, buildY + buildH);
+            for (let i = 0; i < stories; i++) {
+                let z_bot = i === 0 ? 0 : z_arr[i - 1];
+                let z_top = z_arr[i];
+                let y_bot = buildY + buildH - (z_bot / H) * buildH;
+                let y_top = buildY + buildH - (z_top / H) * buildH;
+                let arrowLen = (Pw_arr[i] / maxP) * maxArrowLen;
+                ctx.lineTo(buildX - arrowLen, y_bot);
+                ctx.lineTo(buildX - arrowLen, y_top);
+            }
+            ctx.lineTo(buildX, buildY);
+            ctx.fillStyle = 'rgba(37, 99, 235, 0.15)';
+            ctx.fill();
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Windward Arrows
+            ctx.font = "16px Sarabun";
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i < stories; i++) {
+                let z_bot = i === 0 ? 0 : z_arr[i - 1];
+                let z_top = z_arr[i];
+                let y_mid = buildY + buildH - ((z_bot + z_top) / 2 / H) * buildH;
+                let arrowLen = (Pw_arr[i] / maxP) * maxArrowLen;
+                drawArrow(ctx, buildX - arrowLen, y_mid, buildX, y_mid, '#2563eb');
+                ctx.fillText(Pw_arr[i].toFixed(1) + " N/m²", buildX - arrowLen - 8, y_mid);
+            }
+
+            // Leeward Polygon
+            let leeLen = (Math.abs(Plee) / maxP) * maxArrowLen;
+            ctx.beginPath();
+            ctx.moveTo(buildX + buildW, buildY + buildH);
+            ctx.lineTo(buildX + buildW + leeLen, buildY + buildH);
+            ctx.lineTo(buildX + buildW + leeLen, buildY);
+            ctx.lineTo(buildX + buildW, buildY);
+            ctx.fillStyle = 'rgba(220, 38, 38, 0.15)';
+            ctx.fill();
+            ctx.strokeStyle = '#dc2626';
+            ctx.stroke();
+
+            // Leeward Arrows
+            ctx.textAlign = 'left';
+            for (let i = 0; i < stories; i++) {
+                let z_bot = i === 0 ? 0 : z_arr[i - 1];
+                let z_top = z_arr[i];
+                let y_mid = buildY + buildH - ((z_bot + z_top) / 2 / H) * buildH;
+                drawArrow(ctx, buildX + buildW, y_mid, buildX + buildW + leeLen, y_mid, '#dc2626');
+            }
+            ctx.fillText(Math.abs(Plee).toFixed(1) + " N/m²", buildX + buildW + leeLen + 10, buildY + buildH / 2);
+
+            drawBuildingOutline(ctx, buildX, buildY, buildW, buildH, stories, H, z_arr, "H = " + H.toFixed(2) + " ม.");
+        }
+
+        function drawStoryForces(canvasId, H, stories, z_arr, F_arr, totalShear, sideDim, colorCode) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const cw = canvas.width;
+            const ch = canvas.height;
+            const marginB = 80, marginT = 40, buildW = 120;
+            const buildH = ch - marginB - marginT;
+            const buildX = cw / 2 - buildW / 2 + 30; // Shift right to make space for arrows
+            const buildY = marginT;
+
+            drawGround(ctx, cw, buildY + buildH);
+            drawBuildingOutline(ctx, buildX, buildY, buildW, buildH, stories, H, z_arr, "กว้าง = " + sideDim + " ม.");
+
+            let maxF = Math.max(...F_arr);
+            if (maxF === 0) maxF = 1;
+            const maxArrowLen = 160;
+
+            ctx.font = "bold 16px Sarabun";
+            ctx.fillStyle = colorCode;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+
+            // Draw Concentrated Loads
+            for (let i = 0; i < stories; i++) {
+                let z = z_arr[i];
+                let y = buildY + buildH - (z / H) * buildH;
+                let arrowLen = (F_arr[i] / maxF) * maxArrowLen;
+                
+                // Minimum arrow length for visibility
+                if (arrowLen < 40) arrowLen = 40; 
+
+                // Draw solid block at diaphragm
+                ctx.beginPath();
+                ctx.arc(buildX, y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = colorCode;
+                ctx.fill();
+
+                drawArrow(ctx, buildX - arrowLen, y, buildX, y, colorCode, 3);
+                ctx.fillText(F_arr[i].toFixed(1) + " kN", buildX - arrowLen - 8, y);
+            }
+
+            // Draw Base Shear
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#b91c1c';
+            drawArrow(ctx, buildX + buildW + 60, buildY + buildH, buildX + buildW, buildY + buildH, '#b91c1c', 4);
+            ctx.fillText("V = " + totalShear.toFixed(1) + " kN", buildX + buildW + 70, buildY + buildH);
+        }
+
+        function drawGround(ctx, cw, groundY) {
+            ctx.beginPath();
+            ctx.moveTo(30, groundY);
+            ctx.lineTo(cw - 30, groundY);
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            for (let x = 30; x <= cw - 30; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, groundY);
+                ctx.lineTo(x - 12, groundY + 12);
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        function drawBuildingOutline(ctx, bx, by, bw, bh, stories, H, z_arr, labelText) {
+            ctx.beginPath();
+            ctx.rect(bx, by, bw, bh);
+            ctx.fillStyle = 'rgba(249, 250, 251, 0.6)';
+            ctx.fill();
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            ctx.strokeStyle = '#9ca3af';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            for (let i = 0; i < stories - 1; i++) {
+                let y = by + bh - (z_arr[i] / H) * bh;
+                ctx.beginPath();
+                ctx.moveTo(bx, y);
+                ctx.lineTo(bx + bw, y);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+
+            ctx.beginPath();
+            ctx.moveTo(bx + bw / 2, by);
+            ctx.lineTo(bx + bw / 2, by + bh);
+            ctx.strokeStyle = '#9ca3af';
+            ctx.stroke();
+            
+            ctx.fillStyle = '#374151';
+            ctx.textAlign = 'center';
+            ctx.font = "bold 16px Sarabun";
+            ctx.fillText(labelText, bx + bw / 2, by + bh / 2);
+        }
+
+        function drawArrow(ctx, fromX, fromY, toX, toY, color, width = 2) {
+            const headlen = 10;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            ctx.stroke();
+        }
+    </script>
+</body>
+</html>
