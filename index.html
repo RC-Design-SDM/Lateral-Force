@@ -19,7 +19,7 @@
     <div class="max-w-7xl mx-auto bg-white p-6 md:p-10 shadow-lg border border-gray-200 rounded-md">
         
         <div class="report-header text-center">
-            <h1 class="text-2xl font-bold text-gray-800">รายการคำนวณตาม ข.9</h1>
+            <h1 class="text-2xl font-bold text-gray-800">รายการคำนวณแรงลมตาม ข.9</h1>
             <p class="text-lg text-gray-600 mt-1">การคำนวณหน่วยแรงลมและ Story Force (มยผ. 1311-50)</p>
         </div>
 
@@ -62,7 +62,7 @@
                     <label class="block text-sm font-medium text-gray-700">ค่าประกอบความสำคัญ, Iw</label>
                     <select id="inp_Iw" class="mt-1 w-full p-2 border rounded border-gray-300">
                         <option value="0.8" selected>0.8 (น้อย)</option>
-                        <option value="1.0" selected>1.0 (อาคารปกติ)</option>
+                         <option value="1.0" selected>1.0 (อาคารปกติ)</option>
                         <option value="1.15">1.15 (อาคารสำคัญมาก/สูงมาก)</option>
                     </select>
                 </div>
@@ -396,7 +396,7 @@
 
             const cw = canvas.width;
             const ch = canvas.height;
-            const marginB = 80, marginT = 80, buildW = 160; // Increased marginT for parapet
+            const marginB = 80, marginT = 80, buildW = 160; 
             const buildH = ch - marginB - marginT;
             const buildX = cw / 2 - buildW / 2;
             const buildY = marginT;
@@ -465,6 +465,7 @@
             ctx.stroke();
 
             // Leeward Arrows
+            ctx.fillStyle = '#dc2626';
             ctx.textAlign = 'left';
             for (let i = 0; i < stories; i++) {
                 let z_bot = i === 0 ? 0 : z_arr[i - 1];
@@ -484,7 +485,7 @@
 
             const cw = canvas.width; 
             const ch = canvas.height; 
-            const marginB = 80, marginT = 80, buildW = 120; // Increased marginT for parapet
+            const marginB = 80, marginT = 80, buildW = 120; 
             const buildH = ch - marginB - marginT;
             
             const buildX = (cw / 2) - (buildW / 2) + 60; 
